@@ -2,40 +2,38 @@ import { Todo } from "../models/todo.js";
 import { Message } from "../component/message.js";
 import { ApiUrls } from "./config.js";
 
+// API 通信を管理するクラス
 export class TodoService {
     /**
-     * API 通信を行う関数の作成。
-     */
+    * API 通信を行う関数。
+    */
     static async fetchFromApi(url, options = {}) {
-        // メッセージの処理を終了(例:エラーメッセージの非表示)
-        Message.dispose()
-        
-        // 非同期で API からデータを取得
+        // 新しいリクエスト前に既存のメッセージを削除
+        Message.dispose();
+
         return fetch(url, options)
             .then((res) => {
-                // レスポンスが正常か確認(ステータスコードが 200 番台)
-                if(!res.ok) {
+                if (!res.ok) {
+                    // ステータスコードが 200 系以外の場合はエラーをスロー
                     throw new Error(`HTTP error! Status: ${res.status}`);
                 }
-                // レスポンスを JSON 形式のデータとして取得
+                // レスポンスを JSON として返却
                 return res.json();
             })
             .catch((error) => {
                 console.error("API error:", error);
-                // エラーを再スローして呼び出しもとに通知
+                // エラーを呼び出し元に伝播
                 throw error;
-            }
-
-            )
+            });
     }
 
     /**
-     * GetTodo を呼び出す関数。
-     */
+    * GetTodo を呼び出す関数。
+    */
     static async getAll() {
         return this.fetchFromApi(ApiUrls.getTodo)
             .then((data) =>
-                // データを Todo インスタンスの配列に変換
+                // サーバーから取得したデータを Todo クラスのインスタンスに変換
                 data.map(
                     (item) =>
                         new Todo(
@@ -49,37 +47,42 @@ export class TodoService {
                 )
             )
             .catch((error) => {
-                // エラーが発生した場合にログを表示し、空の配列を返す
                 console.error("Error fetching todos:", error);
+                // エラー時は空配列を返却
                 return [];
             });
     }
 
     /**
-     * ManageTodo を呼び出す関数。
-     */
+    * ManageTodo を呼び出す関数
+    */
     static async update(formData) {
-        // formData からサーバーに送信するデータを準備する
+        // サーバーに送信するデータの作成
         const data = {
-            post_type: formData.post_type, // 操作タイプ (例: 'create_new', 'update_content', 'update_is_done', 'update_is_deleted')
-            id: formData.id,               // Todo アイテムの ID
-            title: formData.title,         // タイトル (新規作成または更新時)
-            detail: formData.detail,       // 詳細 (新規作成または更新時)
-            deadLine: formData.deadLine,   // 締切日 (新規作成または更新時)
-            is_done: formData.is_done,     // 完了フラグ (更新時)
-            is_deleted: formData.is_deleted // 削除フラグ (削除時)
+            post_type: formData.post_type,
+            id: formData.id,
+            title: formData.title,
+            detail: formData.detail,
+            deadLine: formData.deadLine,
+            is_done: formData.is_done,
+            is_deleted: formData.is_deleted,
         };
 
-        // fetch を使用して POST リクエストを送信する
-        return this.fetchFromApi(ApiUrls.manageTodo, {
-            method: "POST", // HTTPS メソッドは POST
-            headers: { "Content-Type": "application/json" }, // リクエストヘッダ（）(リクエストのボディのデータが JSON 形式であることを示す)
-            body: JSON.stringify(data), // body に JSON 文字列としてデータを送信
-        })
-            .then(() => true) // 通信成功時に true を返す
-            .catch((error) => {
-                console.error("Error updating todo:", error); // エラー時にエラーメッセージを表示
-                return false; 
+        return (
+            this.fetchFromApi(ApiUrls.manageTodo, {
+                method: "POST", // POST メソッドで送信
+                headers: { "Content-Type": "application/json" }, // JSON 形式のデータを指定
+                body: JSON.stringify(data), // データを JSON 文字列に変換して送信
             })
+                /* 返却される JSON データ例：
+                * {message: 'Todo is_deleted updated successfully!'}
+                */
+                .then(() => true) // 成功時は true を返却
+                .catch((error) => {
+                    console.error("Error updating todo:", error);
+                    // エラー時は false を返却
+                    return false;
+                })
+        );
     }
 }
